@@ -1,6 +1,4 @@
 #include <Arduino.h>
-#include <OneWire.h>
-#include <DallasTemperature.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -9,35 +7,26 @@
 #include <WiFiUdp.h>
 #include "AiEsp32RotaryEncoder.h"
 
-const int oneWireBus = 4;
 bool isRotoryButtonOn = false;
-OneWire oneWire(oneWireBus);
-DallasTemperature sensors(&oneWire);
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
-String currrentTimeStamp;
-
 const char *ssid = "ssid";
-const char *password = "password";
-const char *mqtt_server_ip = "ip";
+const char *password = "pass";
+const char *mqtt_server_ip = "serverip";
 const int mqtt_server_port = 1883;
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-void blinkBlueLed();
 void turnOnBlueLed();
 void turnOffBlueLed();
 
-float getTemperature();
 void reconnectToMqtt();
-static void sendTemperatureToServer();
 void sendButtonPressToServer(bool isOn);
 void sendRotoryValueToServer(int value);
 
 void configure();
-void configureTemperature();
 void configureWiFi();
 void configureMqtt();
 
@@ -86,6 +75,8 @@ void setup()
 {
   Serial.begin(115200);
   delay(100);
+  pinMode(2, OUTPUT); // Initialize GPIO2 pin as an output
+
   configure();
   timeClient.begin();
 
@@ -112,34 +103,14 @@ void turnOffBlueLed()
   digitalWrite(2, LOW);
 }
 
-void blinkBlueLed()
-{
-  turnOnBlueLed();
-  delay(2000);      // Wait for
-  turnOffBlueLed(); // Turn the LED off by making sure
-}
-
-float getTemperature()
-{
-  sensors.requestTemperatures();
-  return sensors.getTempCByIndex(0);
-}
-
 void configure()
 {
   turnOnBlueLed();
 
-  configureTemperature();
   configureWiFi();
   configureMqtt();
 
   turnOffBlueLed();
-}
-
-void configureTemperature()
-{
-  sensors.begin();
-  pinMode(2, OUTPUT); // Initialize GPIO2 pin as an output
 }
 
 void configureWiFi()
@@ -187,21 +158,6 @@ void reconnectToMqtt()
       delay(5000);
     }
   }
-}
-
-static void sendTemperatureToServer()
-{
-  if (!mqttClient.connected())
-  {
-    reconnectToMqtt();
-  }
-  Serial.println("Reporting Temperature");
-  StaticJsonDocument<120> doc;
-  char output[120];
-  doc["temp"] = getTemperature();
-  doc["timeStamp"] = timeClient.getEpochTime();
-  serializeJson(doc, output);
-  mqttClient.publish("/home/sensors/temp", output);
 }
 
 void sendButtonPressToServer(bool isOn)
